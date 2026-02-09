@@ -1,0 +1,961 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Scheduler</title>
+
+    <!-- Bootstrap -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+
+    <!-- Font Awesome -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
+
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+
+    <style>
+        .grid-header,
+        .grid-row {
+            display: grid;
+            grid-template-columns:
+                60px 120px 120px 120px 120px 120px 120px 80px 100px 100px 80px 80px 100px;
+            align-items: center;
+        }
+
+        .grid-header {
+            background: #f8f9fa;
+            font-weight: 600;
+            border-bottom: 1px solid #dee2e6;
+        }
+
+        .grid-row {
+            border-bottom: 1px solid #dee2e6;
+        }
+
+        .grid-cell {
+            padding: 10px;
+            text-align: center;
+            font-size: 14px;
+        }
+
+        .chromeleon-box {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 12px;
+            padding: 16px;
+            margin-top: 16px;
+        }
+
+        .chromeleon-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: #0d6efd;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .chromeleon-title i {
+            font-size: 15px;
+        }
+
+        .service-radio {
+            background: #fff;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            padding: 10px 16px;
+            cursor: pointer;
+        }
+
+        .service-radio input {
+            margin-right: 6px;
+        }
+
+        /* ===== COMPACT FORM – 3 COLUMNS ===== */
+
+        /* Force 3 columns instead of Bootstrap default */
+        .modal-body .row.g-3>.col-md-6,
+        .modal-body .row.g-3>.col-md-4,
+        .modal-body .row.g-3>.col-md-12 {
+            flex: 0 0 33.3333%;
+            max-width: 33.3333%;
+        }
+
+        /* Make labels + inputs compact */
+        .modal-body label {
+            font-size: 15px;
+            margin-bottom: 2px;
+        }
+
+        .modal-body .form-control,
+        .modal-body .form-select {
+            font-size: 15px;
+            padding: 4px 8px;
+            height: 32px;
+        }
+
+        /* Reduce vertical gaps */
+        .modal-body .row.g-3 {
+            row-gap: 6px;
+        }
+
+        /* Chromeleon box compact */
+        .chromeleon-box {
+            padding: 10px;
+            margin-top: 8px;
+        }
+
+        /* Service radio compact */
+        .service-radio {
+            padding: 4px 8px;
+            font-size: 12px;
+        }
+
+        /* Prevent modal scrolling */
+        .modal-body {
+            overflow: visible !important;
+        }
+    </style>
+</head>
+
+<body class="bg-light">
+
+    <div class="container-fluid mt-4">
+        <div class="card shadow-sm">
+
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">Scheduler Configuration</h5>
+                <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#createModal">
+                    <i class="fa fa-plus"></i> Create
+                </button>
+            </div>
+
+            <div class="card-body p-0">
+                <div class="grid-header">
+                    <div class="grid-cell">S.No</div>
+                    <div class="grid-cell">Plant</div>
+                    <div class="grid-cell">Location</div>
+                    <div class="grid-cell">Instrument</div>
+                    <div class="grid-cell">Module</div>
+                    <div class="grid-cell">Process</div>
+                    <div class="grid-cell">Interval</div>
+                    <div class="grid-cell">UOM</div>
+                    <div class="grid-cell">Frequency</div>
+                    <div class="grid-cell">Username</div>
+                    <div class="grid-cell">Table</div>
+                    <div class="grid-cell">Status</div>
+                    <div class="grid-cell">Action</div>
+                </div>
+
+                {% for s in schedulers %}
+                <div class="grid-row">
+                    <div class="grid-cell">{{ forloop.counter }}</div>
+                    <div class="grid-cell">{{ s.plant|default:"-" }}</div>
+                    <div class="grid-cell">{{ s.location|default:"-" }}</div>
+                    <div class="grid-cell">{{ s.instrument|default:"-" }}</div>
+                    <div class="grid-cell">{{ s.module|default:"-" }}</div>
+                    <div class="grid-cell">{{ s.process|default:"-" }}</div>
+                    <div class="grid-cell">{{ s.interval|default:"-" }}</div>
+                    <div class="grid-cell">{{ s.uom|default:"-" }}</div>
+                    <div class="grid-cell">{{ s.execution_frequency|default:"-" }}</div>
+                    <div class="grid-cell">{{ s.username|default:"-" }}</div>
+                    <div class="grid-cell">{{ s.table_name|default:"-" }}</div>
+                    <div class="grid-cell">
+                        {% if s.status == "Active" %}
+                        <span class="badge-active">Active</span>
+                        {% else %}
+                        <span class="badge-inactive">Inactive</span>
+                        {% endif %}
+                    </div>
+                    <div class="grid-cell d-flex justify-content-center gap-2">
+                        <!-- EDIT -->
+                        <button class="btn btn-sm btn-outline-primary edit-btn" data-id="{{ s.id }}"
+                            data-process="{{ s.process }}" data-plant="{{ s.plant }}" data-location="{{ s.location }}"
+                            data-module="{{ s.module }}" data-instrument="{{ s.instrument }}"
+                            data-interval="{{ s.interval }}" data-uom="{{ s.uom }}"
+                            data-frequency="{{ s.execution_frequency }}" data-status="{{ s.status }}"
+                            data-db_business_unit="{{ s.business_unit }}" data-db_plant="{{ s.plant }}"
+                            data-db_location="{{ s.location }}" data-db_module="{{ s.module }}"
+                            data-db_instrument="{{ s.instrument }}"
+                            data-db_execution_frequency="{{ s.execution_frequency }}"
+                            data-db_interval="{{ s.interval }}" data-db_uom="{{ s.uom }}"
+                            data-db_host_ip="{{ s.host_ip }}" data-db_port="{{ s.port }}"
+                            data-db_table_name="{{ s.table_name }}" data-db_username="{{ s.username }}"
+                            data-db_password="{{ s.password }}" data-db_status="{{ s.status }}"
+                            data-files_business_unit="{{ s.business_unit }}" data-files_plant="{{ s.plant }}"
+                            data-files_location="{{ s.location }}" data-files_module="{{ s.module }}"
+                            data-files_instrument="{{ s.instrument }}"
+                            data-files_execution_frequency="{{ s.execution_frequency }}"
+                            data-files_interval="{{ s.interval }}" data-files_uom="{{ s.uom }}"
+                            data-files_host_ip="{{ s.host_ip }}" data-app_target_dir="{{ s.target_dir }}"
+                            data-files_target_dir="{{ s.target_dir }}"
+                            data-effected_from="{{ s.effected_from|date:'Y-m-d' }}"
+                            data-files_effected_from="{{ s.effected_from|date:'Y-m-d' }}"
+                            data-files_status="{{ s.status }}" data-empower_module="{{ s.empower_module|default:'' }}"
+                            data-empower_plant="{{ s.empower_plant|default:'' }}"
+                            data-empower_location="{{ s.empower_location|default:'' }}"
+                            data-empower_host="{{ s.empower_host|default:'' }}"
+                            data-empower_data_source="{{ s.empower_data_source|default:'' }}"
+                            data-empower_username="{{ s.empower_username|default:'' }}"
+                            data-empower_password="{{ s.empower_password|default:'' }}"
+                            data-empower_default_project="{{ s.empower_default_project|default:'' }}"
+                            data-empower_project_contains="{{ s.empower_project_contains|default:'' }}"
+                            data-empower_client="{{ s.empower_client|default:'' }}"
+                            data-empower_status="{{ s.empower_status|default:'' }}"
+                            data-chromeleon_location="{{ s.location }}" data-chromeleon_host="{{ s.host_ip }}"
+                            data-chromeleon_username="{{ s.username }}" data-chromeleon_password="{{ s.password }}"
+                            data-chromeleon_resume_date="{{ s.effected_from|date:'Y-m-d' }}"
+                            data-chromeleon_module="{{ s.chromeleon_module }}" data-chromeleon_status="{{ s.status }}"
+                            data-chromeleon_plant="{{ s.plant }}" data-chromeleon_service="{{ s.chromeleon_service }}"
+                            data-chromeleon_pwd_days="{{ s.chromeleon_pwd_days }}"
+                            data-chromeleon_alert_days="{{ s.chromeleon_alert_days }}"
+                            data-chromeleon_data_vault="{{ s.chromeleon_data_vault }}"
+                            data-chromeleon_skip_project="{{ s.chromeleon_skip_project }}"
+                            data-chromeleon_group="{{ s.chromeleon_group }}"
+                            data-chromeleon_project_contains="{{ s.chromeleon_project_contains }}"
+                            data-bs-toggle="modal" data-bs-target="#createModal">
+                            <i class="fa fa-pen"></i>
+                        </button>
+                        <!-- DELETE -->
+                        <a href="{% url 'scheduler_delete' s.id %}" class="btn btn-sm btn-danger"
+                            onclick="return confirm('Are you sure you want to delete?');">
+                            <i class="fa fa-trash"></i>
+                        </a>
+
+
+                    </div>
+                </div>
+                {% empty %}
+                <div class="p-3 text-center">No records found</div>
+                {% endfor %}
+
+            </div>
+        </div>
+    </div>
+
+    <!-- CREATE MODAL -->
+    <div class="modal fade" id="createModal" tabindex="-1">
+        <div class="modal-dialog modal-lg modal-dialog-centered">
+            <div class="modal-content">
+
+                <form method="POST" action="{% url 'scheduler_create' %}" id="schedulerForm">
+                    {% csrf_token %}
+                    <input type="hidden" name="scheduler_id" id="scheduler_id">
+
+                    <div class="modal-header">
+                        <h5 class="modal-title">Create Scheduler Configuration</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+
+                    <div class="modal-body">
+                        <div class="row g-3">
+
+                            <!-- Process -->
+                            <div class="col-md-6">
+                                <label class="form-label">Process </label>
+                                <select name="process" id="processSelect" class="form-select" required>
+                                    <option value="">Select</option>
+                                    {% for v,l in choices.PROCESS_CHOICES %}
+                                    <option value="{{ v }}">{{ l }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+
+                            <!-- APPLICATION DATA BACKUP FIELDS -->
+                            <div class="col-md-6 field-app">
+                                <label class="form-label">Execution Frequency </label>
+                                <select name="execution_frequency" class="form-select">
+                                    <option value="">Select</option>
+                                    {% for v,l in choices.FREQUENCY_CHOICES %}
+                                    <option value="{{ v }}">{{ l }}</option>
+                                    {% endfor %}
+                                </select>
+
+                            </div>
+
+                            <div class="col-md-6 field-app">
+                                <label class="form-label">Interval </label>
+                                <input type="number" name="interval" class="form-control">
+                            </div>
+
+                            <div class="col-md-6 field-app">
+                                <label class="form-label">Interval Units </label>
+                                <select name="uom" class="form-select">
+                                    <option value="">Select</option>
+                                    {% for v,l in choices.UOM_CHOICES %}
+                                    <option value="{{ v }}">{{ l }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+
+                            <div class="col-md-6 field-app">
+                                <label class="form-label">Target Dir </label>
+                                <input type="text" name="app_target_dir" class="form-control">
+                            </div>
+
+                            <div class="col-md-6 field-app">
+                                <label class="form-label">Effected From </label>
+                                <input type="date" name="effected_from" id="effected_from" class="form-control">
+                            </div>
+
+                            <div class="col-md-6 field-app">
+                                <label class="form-label">Status </label>
+                                <select name="status" class="form-select">
+                                    <option value="">Select</option>
+                                    <option value="Active">Active</option>
+                                    <option value="Inactive">Inactive</option>
+                                </select>
+                            </div>
+
+                            <!-- DB SYNC FIELDS -->
+                            <div class="col-md-6 field-db-sync">
+                                <label class="form-label">Business Unit </label>
+                                <select name="business_unit" class="form-select">
+                                    <option value="">Select</option>
+                                    {% for v,l in choices.BUSINESS_UNIT_CHOICES %}
+                                    <option value="{{ v }}">{{ l }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <!-- Plant -->
+                            <div class="col-md-6 field-db-sync">
+                                <label class="form-label">Plant </label>
+                                <select name="plant" class="form-select">
+                                    <option value="">Select</option>
+                                    {% for v,l in choices.PLANT_CHOICES %}
+                                    <option value="{{ v }}">{{ l }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-6 field-db-sync">
+                                <label class="form-label">Module </label>
+                                <select name="module" class="form-select">
+                                    <option value="">Select</option>
+                                    {% for v,l in choices.MODULE_CHOICES %}
+                                    <option value="{{ v }}">{{ l }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-6 field-db-sync">
+                                <label class="form-label">Location </label>
+                                <select name="location" class="form-select">
+                                    <option value="">Select</option>
+                                    {% for v,l in choices.LOCATION_CHOICES %}
+                                    <option value="{{ v }}">{{ l }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-6 field-db-sync">
+                                <label class="form-label">Instrument </label>
+                                <select name="instrument" class="form-select">
+                                    <option value="">Select</option>
+                                    {% for v,l in choices.INSTRUMENT_CHOICES %}
+                                    <option value="{{ v }}">{{ l }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-6 field-db-sync">
+                                <label class="form-label">Execution Frequency </label>
+                                <select name="db_execution_frequency" class="form-select">
+                                    <option value="">Select</option>
+                                    {% for v,l in choices.FREQUENCY_CHOICES %}
+                                    <option value="{{ v }}">{{ l }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-6 field-db-sync">
+                                <label class="form-label">Interval </label>
+                                <input type="number" name="db_interval" class="form-control">
+                            </div>
+                            <div class="col-md-6 field-db-sync">
+                                <label class="form-label">Interval Units </label>
+                                <select name="db_uom" class="form-select">
+                                    <option value="">Select</option>
+                                    {% for v,l in choices.UOM_CHOICES %}
+                                    <option value="{{ v }}">{{ l }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-6 field-db-sync">
+                                <label class="form-label">Host IP Address </label>
+                                <input type="text" name="host_ip" class="form-control">
+                            </div>
+                            <div class="col-md-6 field-db-sync">
+                                <label class="form-label">Port </label>
+                                <input type="number" name="port" class="form-control">
+                            </div>
+
+                            <div class="col-md-6 field-db-sync">
+                                <label class="form-label">Table Name </label>
+                                <input type="text" name="db_table_name" class="form-control">
+                            </div>
+
+                            <div class="col-md-6 field-db-sync">
+                                <label class="form-label">Username </label>
+                                <input type="text" name="db_username" class="form-control">
+                            </div>
+
+                            <div class="col-md-6 field-db-sync">
+                                <label class="form-label">Password / Secure Key </label>
+                                <input type="password" name="db_password" class="form-control">
+                            </div>
+
+                            <div class="col-md-6 field-db-sync">
+                                <label class="form-label">Status </label>
+                                <select name="db_status" class="form-select">
+                                    <option value="">Select</option>
+                                    <option value="Active">Active</option>
+                                    <option value="Inactive">Inactive</option>
+                                </select>
+                            </div>
+
+                            <!-- FILES SYNC FIELDS -->
+                            <div class="col-md-6 field-files-sync">
+                                <label class="form-label">Business Unit </label>
+                                <select name="files_business_unit" class="form-select">
+                                    <option value="">Select</option>
+                                    {% for v,l in choices.BUSINESS_UNIT_CHOICES %}
+                                    <option value="{{ v }}">{{ l }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+
+                            <div class="col-md-6 field-files-sync">
+                                <label class="form-label">Plant </label>
+                                <select name="files_plant" class="form-select">
+                                    <option value="">Select</option>
+                                    {% for v,l in choices.PLANT_CHOICES %}
+                                    <option value="{{ v }}">{{ l }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+
+                            <div class="col-md-6 field-files-sync">
+                                <label class="form-label">Module </label>
+                                <select name="files_module" class="form-select">
+                                    <option value="">Select</option>
+                                    {% for v,l in choices.MODULE_CHOICES %}
+                                    <option value="{{ v }}">{{ l }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+
+                            <div class="col-md-6 field-files-sync">
+                                <label class="form-label">Location </label>
+                                <select name="files_location" class="form-select">
+                                    <option value="">Select</option>
+                                    {% for v,l in choices.LOCATION_CHOICES %}
+                                    <option value="{{ v }}">{{ l }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+
+                            <div class="col-md-6 field-files-sync">
+                                <label class="form-label">Instrument </label>
+                                <select name="files_instrument" class="form-select">
+                                    <option value="">Select</option>
+                                    {% for v,l in choices.INSTRUMENT_CHOICES %}
+                                    <option value="{{ v }}">{{ l }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+
+                            <div class="col-md-6 field-files-sync">
+                                <label class="form-label">Execution Frequency </label>
+                                <select name="files_execution_frequency" class="form-select">
+                                    <option value="">Select</option>
+                                    {% for v,l in choices.FREQUENCY_CHOICES %}
+                                    <option value="{{ v }}">{{ l }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+
+                            <div class="col-md-6 field-files-sync">
+                                <label class="form-label">Interval </label>
+                                <input type="number" name="files_interval" class="form-control">
+                            </div>
+
+                            <div class="col-md-6 field-files-sync">
+                                <label class="form-label">Interval Units </label>
+                                <select name="files_uom" class="form-select">
+                                    <option value="">Select</option>
+                                    {% for v,l in choices.UOM_CHOICES %}
+                                    <option value="{{ v }}">{{ l }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+
+                            <div class="col-md-6 field-files-sync">
+                                <label class="form-label">Host IP Address </label>
+                                <input type="text" name="files_host_ip" class="form-control">
+                            </div>
+
+                            <div class="col-md-6 field-files-sync">
+                                <label class="form-label">Target Dir </label>
+                                <input type="text" name="files_target_dir" class="form-control">
+                            </div>
+
+                            <div class="col-md-6 field-files-sync">
+                                <label class="form-label">Effected From </label>
+                                <input type="date" name="files_effected_from" id="files_effected_from"
+                                    class="form-control">
+                            </div>
+
+                            <div class="col-md-6 field-files-sync">
+                                <label class="form-label">Status </label>
+                                <select name="files_status" class="form-select">
+                                    <option value="">Select</option>
+                                    <option value="Active">Active</option>
+                                    <option value="Inactive">Inactive</option>
+                                </select>
+                            </div>
+                            <!-- EMPOWER FIELDS -->
+                            <div class="col-md-6 field-empower">
+                                <label class="form-label">Module</label>
+                                <select name="empower_module" class="form-select">
+                                    <option value="">Select</option>
+                                    {% for v,l in choices.MODULE_CHOICES %}
+                                    <option value="{{ v }}">{{ l }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+
+                            <div class="col-md-6 field-empower">
+                                <label class="form-label">Plant</label>
+                                <select name="empower_plant" class="form-select">
+                                    <option value="">Select</option>
+                                    {% for v,l in choices.PLANT_CHOICES %}
+                                    <option value="{{ v }}">{{ l }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+
+                            <div class="col-md-6 field-empower">
+                                <label class="form-label">Location</label>
+                                <select name="empower_location" class="form-select">
+                                    <option value="">Select</option>
+                                    {% for v,l in choices.LOCATION_CHOICES %}
+                                    <option value="{{ v }}">{{ l }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+
+                            <div class="col-md-6 field-empower">
+                                <label class="form-label">Host Name</label>
+                                <input type="text" name="empower_host" class="form-control">
+                            </div>
+
+                            <div class="col-md-6 field-empower">
+                                <label class="form-label">Empower Data Source</label>
+                                <input type="text" name="empower_data_source" class="form-control">
+                            </div>
+
+                            <div class="col-md-6 field-empower">
+                                <label class="form-label">Empower User Name</label>
+                                <input type="text" name="empower_username" class="form-control">
+                            </div>
+
+                            <div class="col-md-6 field-empower">
+                                <label class="form-label">Empower Password</label>
+                                <input type="password" name="empower_password" class="form-control">
+                            </div>
+
+                            <div class="col-md-6 field-empower">
+                                <label class="form-label">Empower Default Project</label>
+                                <input type="text" name="empower_default_project" class="form-control">
+                            </div>
+
+                            <div class="col-md-6 field-empower">
+                                <label class="form-label">Project Contains</label>
+                                <input type="text" name="empower_project_contains" class="form-control">
+                            </div>
+
+                            <div class="col-md-6 field-empower">
+                                <label class="form-label">Client</label>
+                                <input type="text" name="empower_client" class="form-control">
+                            </div>
+
+                            <div class="col-md-6 field-empower">
+                                <label class="form-label">Status</label>
+                                <select name="empower_status" class="form-select">
+                                    <option value="">Select</option>
+                                    <option value="Active">Active</option>
+                                    <option value="Inactive">Inactive</option>
+                                </select>
+                            </div>
+
+                            <!-- ================= CHROMELEON SETTINGS ================= -->
+                            <div class="col-12 field-chromeleon">
+                                <div class="chromeleon-box">
+
+                                    <div class="row g-3">
+
+                                        <!-- BASIC INFO -->
+                                        <div class="col-md-4">
+                                            <label class="form-label">Module</label>
+                                            <input type="text" name="chromeleon_module" class="form-control"
+                                                value="Chromeleon" readonly>
+
+                                        </div>
+                                        <div class="col-md-4">
+                                            <label class="form-label">Location</label>
+                                            <select name="chromeleon_location" class="form-select">
+                                                <option value="">Select</option>
+                                                {% for v,l in choices.LOCATION_CHOICES %}
+                                                <option value="{{ v }}">{{ l }}</option>
+                                                {% endfor %}
+                                            </select>
+                                        </div>
+
+                                        <!-- CONNECTION -->
+                                        <div class="col-md-4">
+                                            <label class="form-label">Host Name</label>
+                                            <input type="text" name="chromeleon_host" class="form-control">
+                                        </div>
+
+                                        <div class="col-md-4">
+                                            <label class="form-label">User Name</label>
+                                            <input type="text" name="chromeleon_username" class="form-control">
+                                        </div>
+
+                                        <div class="col-md-4">
+                                            <label class="form-label">Password</label>
+                                            <input type="password" name="chromeleon_password" class="form-control">
+                                        </div>
+
+                                        <!-- SERVICE -->
+                                        <div class="col-md-6">
+                                            <label class="form-label">Service</label>
+                                            <div class="d-flex gap-3">
+                                                <label class="service-radio">
+                                                    <input type="radio" name="chromeleon_service" value="Start">
+                                                    Start
+                                                </label>
+                                                <label class="service-radio">
+                                                    <input type="radio" name="chromeleon_service" value="Stop">
+                                                    Stop
+                                                </label>
+                                            </div>
+                                        </div>
+
+                                        <div class="col-md-6">
+                                            <label class="form-label">Resume Date</label>
+                                            <input type="date" name="chromeleon_resume_date" class="form-control">
+                                        </div>
+
+                                        <!-- PASSWORD RULES -->
+                                        <div class="col-md-4">
+                                            <label class="form-label">Password Expiry (Days)</label>
+                                            <input type="number" name="chromeleon_pwd_days" class="form-control">
+                                        </div>
+
+                                        <div class="col-md-4">
+                                            <label class="form-label">Alert Before (Days)</label>
+                                            <input type="number" name="chromeleon_alert_days" class="form-control">
+                                        </div>
+
+                                        <div class="col-md-4">
+                                            <label class="form-label">Status</label>
+                                            <select name="chromeleon_status" class="form-select">
+                                                <option value="">Select</option>
+                                                <option value="Active">Active</option>
+                                                <option value="Inactive">Inactive</option>
+                                            </select>
+                                        </div>
+
+                                        <!-- PROJECT SETTINGS -->
+                                        <div class="col-md-4">
+                                            <label class="form-label">Plant</label>
+                                            <select name="chromeleon_plant" class="form-select">
+                                                <option value="">Select</option>
+                                                {% for v,l in choices.PLANT_CHOICES %}
+                                                <option value="{{ v }}">{{ l }}</option>
+                                                {% endfor %}
+                                            </select>
+                                        </div>
+
+                                        <div class="col-md-4">
+                                            <label class="form-label">Data Vault</label>
+
+                                            <input type="checkbox" name="chromeleon_data_vault" value="true">
+
+                                        </div>
+
+                                        <div class="col-md-4">
+                                            <label class="form-label">Group</label>
+                                            <select name="chromeleon_group" class="form-select">
+                                                <option value="">Select</option>
+                                                <option value="Group A">Group A</option>
+                                                <option value="Group B">Group B</option>
+                                            </select>
+                                        </div>
+
+                                        <div class="col-md-6">
+                                            <label class="form-label">Project Contains</label>
+                                            <input type="text" name="chromeleon_project_contains" class="form-control">
+                                        </div>
+
+                                        <div class="col-md-6">
+                                            <label class="form-label">Skip Project</label>
+
+                                            <input type="checkbox" name="chromeleon_skip_project" value="true">
+                                        </div>
+
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="submit" class="btn btn-primary">Save</button>
+                    </div>
+
+                </form>
+            </div>
+        </div>
+    </div>
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+
+            const form = document.getElementById("schedulerForm");
+            const processSelect = document.getElementById("processSelect");
+
+            const appFields = document.querySelectorAll(".field-app");
+            const dbFields = document.querySelectorAll(".field-db-sync");
+            const filesFields = document.querySelectorAll(".field-files-sync");
+            const empowerFields = document.querySelectorAll(".field-empower");
+            const chromeleonFields = document.querySelectorAll(".field-chromeleon");
+
+            // Function to hide all process-specific fields
+            function hideAll() {
+                [...appFields, ...dbFields, ...filesFields, ...empowerFields, ...chromeleonFields]
+                    .forEach(el => el.style.display = "none");
+            }
+            hideAll();
+
+            // Show fields based on selected process
+            processSelect.addEventListener("change", function () {
+                hideAll();
+                if (this.value === "Application Data Backup") appFields.forEach(el => el.style.display = "block");
+                if (this.value === "DB Sync") dbFields.forEach(el => el.style.display = "block");
+                if (this.value === "Files Sync") filesFields.forEach(el => el.style.display = "block");
+                if (this.value === "Empower Settings") empowerFields.forEach(el => el.style.display = "block");
+                if (this.value === "Chromeleon Settings") chromeleonFields.forEach(el => el.style.display = "block");
+            });
+
+            // ---------- CREATE ----------
+            document.querySelector('.btn-primary[data-bs-target="#createModal"]').addEventListener("click", function () {
+
+                document.querySelector(".modal-title").innerText =
+                    "Create Scheduler Configuration";
+                document.getElementById("scheduler_id").value = "";
+                form.reset();
+                processSelect.value = "";
+                hideAll();
+            });
+
+            // ---------- EDIT ----------
+            document.querySelectorAll(".edit-btn").forEach(btn => {
+                btn.addEventListener("click", function () {
+                    document.querySelector(".modal-title").innerText =
+                        "Edit Scheduler Configuration";
+                    const id = this.dataset.id;
+                    document.getElementById("scheduler_id").value = id;
+                    processSelect.value = this.dataset.process;
+
+                    // SHOW SECTION FIRST
+                    hideAll();
+                    if (this.dataset.process === "Application Data Backup") appFields.forEach(el => el.style.display = "block");
+                    if (this.dataset.process === "DB Sync") dbFields.forEach(el => el.style.display = "block");
+                    if (this.dataset.process === "Files Sync") filesFields.forEach(el => el.style.display = "block");
+                    if (this.dataset.process === "Empower Settings") empowerFields.forEach(el => el.style.display = "block");
+                    if (this.dataset.process === "Chromeleon Settings") chromeleonFields.forEach(el => el.style.display = "block");
+
+                    // Interval
+                    if (this.dataset.process === "Application Data Backup") {
+                        document.querySelector('[name="interval"]').value =
+                            this.dataset.interval || "";
+                    }
+                    if (this.dataset.process === "DB Sync") {
+                        document.querySelector('[name="db_interval"]').value =
+                            this.dataset.db_interval || "";
+                    }
+
+                    if (this.dataset.process === "Files Sync") {
+                        document.querySelector('[name="files_interval"]').value =
+                            this.dataset.files_interval || "";
+                    }
+
+
+                    // Target Dir
+                    if (this.dataset.process === "Application Data Backup") {
+                        document.querySelector('[name="app_target_dir"]').value =
+                            this.dataset.app_target_dir || "";
+                    }
+
+                    if (this.dataset.process === "Files Sync") {
+                        document.querySelector('[name="files_target_dir"]').value =
+                            this.dataset.files_target_dir || "";
+                    }
+
+                    // Effected From (Date)
+                    if (this.dataset.process === "Application Data Backup") {
+                        document.querySelector('[name="effected_from"]').value =
+                            this.dataset.effected_from || "";
+                    }
+
+                    if (this.dataset.process === "Files Sync") {
+                        document.querySelector('[name="files_effected_from"]').value =
+                            this.dataset.files_effected_from || "";
+                    }
+
+                    // Execution Frequency & UOM dropdowns
+                    if (this.dataset.process === "Application Data Backup") {
+                        document.querySelector('[name="uom"]').value =
+                            this.dataset.uom || "";
+                    }
+
+                    if (this.dataset.process === "Application Data Backup") {
+                        document.querySelector('[name="execution_frequency"]').value =
+                            this.dataset.frequency || "";
+                    }
+                    if (this.dataset.process === "Application Data Backup") {
+                        document.querySelector('[name="status"]').value =
+                            this.dataset.status || "Active";
+                    }
+
+
+                    // --------- DB Sync ---------
+                    if (this.dataset.process === "DB Sync") {
+                        document.querySelector('[name="business_unit"]').value = this.dataset.db_business_unit || "";
+                        document.querySelector('[name="plant"]').value = this.dataset.db_plant || "";
+                        document.querySelector('[name="location"]').value = this.dataset.db_location || "";
+                        document.querySelector('[name="module"]').value = this.dataset.db_module || "";
+                        document.querySelector('[name="instrument"]').value = this.dataset.db_instrument || "";
+                        document.querySelector('[name="db_interval"]').value = this.dataset.db_interval || "";
+                        document.querySelector('[name="db_uom"]').value = this.dataset.db_uom || "";
+                        document.querySelector('[name="host_ip"]').value = this.dataset.db_host_ip || "";
+                        document.querySelector('[name="port"]').value = this.dataset.db_port || "";
+                        document.querySelector('[name="db_table_name"]').value = this.dataset.db_table_name || "";
+                        document.querySelector('[name="db_username"]').value = this.dataset.db_username || "";
+                        document.querySelector('[name="db_password"]').value = this.dataset.db_password || "";
+                        document.querySelector('[name="db_status"]').value = this.dataset.db_status || "";
+                        document.querySelector('[name="db_execution_frequency"]').value = this.dataset.db_execution_frequency || "";
+                    }
+
+                    // --------- Files Sync ---------
+                    if (this.dataset.process === "Files Sync") {
+                        document.querySelector('[name="files_business_unit"]').value = this.dataset.files_business_unit || "";
+                        document.querySelector('[name="files_plant"]').value = this.dataset.files_plant || "";
+                        document.querySelector('[name="files_location"]').value = this.dataset.files_location || "";
+                        document.querySelector('[name="files_module"]').value = this.dataset.files_module || "";
+                        document.querySelector('[name="files_instrument"]').value = this.dataset.files_instrument || "";
+                        document.querySelector('[name="files_execution_frequency"]').value = this.dataset.files_execution_frequency || "";
+                        document.querySelector('[name="files_interval"]').value = this.dataset.files_interval || "";
+                        document.querySelector('[name="files_uom"]').value = this.dataset.files_uom || "";
+                        document.querySelector('[name="files_host_ip"]').value = this.dataset.files_host_ip || "";
+                        document.querySelector('[name="files_target_dir"]').value = this.dataset.files_target_dir || "";
+                        document.querySelector('[name="files_effected_from"]').value = this.dataset.files_effected_from || "";
+                        document.querySelector('[name="files_status"]').value = this.dataset.files_status || "";
+                    }
+
+                    //----------Empower settings----------------
+                    if (this.dataset.process === "Empower Settings") {
+                        document.querySelector('[name="empower_module"]').value =
+                            this.dataset.empower_module || "";
+                        document.querySelector('[name="empower_plant"]').value =
+                            this.dataset.empower_plant || "";
+                        document.querySelector('[name="empower_location"]').value =
+                            this.dataset.empower_location || "";
+                        document.querySelector('[name="empower_host"]').value =
+                            this.dataset.empower_host || "";
+                        document.querySelector('[name="empower_data_source"]').value =
+                            this.dataset.empower_data_source || "";
+                        document.querySelector('[name="empower_username"]').value =
+                            this.dataset.empower_username || "";
+                        document.querySelector('[name="empower_password"]').value =
+                            this.dataset.empower_password || "";
+                        document.querySelector('[name="empower_default_project"]').value =
+                            this.dataset.empower_default_project || "";
+                        document.querySelector('[name="empower_project_contains"]').value =
+                            this.dataset.empower_project_contains || "";
+                        document.querySelector('[name="empower_client"]').value =
+                            this.dataset.empower_client || "";
+                        document.querySelector('[name="empower_status"]').value =
+                            this.dataset.empower_status || "";
+                    }
+                    // --------- Chromeleon ---------
+                    if (this.dataset.process === "Chromeleon Settings") {
+                        document.querySelector('[name="chromeleon_module"]').value = "Chromeleon";
+                        document.querySelector('[name="chromeleon_location"]').value = this.dataset.chromeleon_location || "";
+                        document.querySelector('[name="chromeleon_host"]').value = this.dataset.chromeleon_host || "";
+                        document.querySelector('[name="chromeleon_username"]').value = this.dataset.chromeleon_username || "";
+                        document.querySelector('[name="chromeleon_password"]').value = this.dataset.chromeleon_password || "";
+                        document.querySelector('[name="chromeleon_resume_date"]').value = this.dataset.chromeleon_resume_date || "";
+                        document.querySelector('[name="chromeleon_pwd_days"]').value = this.dataset.chromeleon_pwd_days || "";
+                        document.querySelector('[name="chromeleon_alert_days"]').value = this.dataset.chromeleon_alert_days || "";
+                        document.querySelector('[name="chromeleon_status"]').value = this.dataset.chromeleon_status || "";
+                        document.querySelector('[name="chromeleon_plant"]').value = this.dataset.chromeleon_plant || "";
+                        document.querySelector('[name="chromeleon_group"]').value = this.dataset.chromeleon_group || "";
+                        document.querySelector('[name="chromeleon_project_contains"]').value = this.dataset.chromeleon_project_contains || "";
+                        document.querySelector(
+                            'input[type="checkbox"][name="chromeleon_data_vault"]'
+                        ).checked = this.dataset.chromeleon_data_vault === "True";
+                        document.querySelector(
+                            'input[type="checkbox"][name="chromeleon_skip_project"]'
+                        ).checked = this.dataset.chromeleon_skip_project === "True";
+                        const service = this.dataset.chromeleon_service || "";
+                        document
+                            .querySelectorAll('[name="chromeleon_service"]')
+                            .forEach(radio => {
+                                radio.checked = radio.value === service;
+                            });
+                    }
+                    form.action = "{% url 'scheduler_create' %}";
+                });
+            });
+        });
+    </script>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+
+    {% if messages %}
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+            {% for message in messages %}
+            Swal.fire({
+                icon: "{{ message.tags|default:'success'|escapejs }}",
+                title: "{{ message|escapejs }}",
+                timer: 2000,
+                showConfirmButton: false
+            });
+            {% endfor %}
+        });
+    </script>
+    {% endif %}
+
+    <script>
+        function confirmDelete(id) {
+            Swal.fire({
+                title: "Are you sure?",
+                text: "This scheduler will be permanently deleted!",
+                icon: "warning",
+                showCancelButton: true,
+                confirmButtonColor: "#d33",
+                cancelButtonColor: "#6c757d",
+                confirmButtonText: "Yes, delete it!"
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    window.location.href = `/delete/${id}/`;
+                }
+            });
+        }
+    </script>
+
+
+</body>
+
+</html>
